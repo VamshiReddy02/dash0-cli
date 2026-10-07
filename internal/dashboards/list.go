@@ -112,7 +112,9 @@ func runList(ctx context.Context, flags *asset.ListFlags) error {
 			displayName, err := getDisplayName(ctx, apiClient, item.Id, dataset)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "warning: failed to resolve dashboard %s: %v\n", item.Id, err)
-				displayName = "<error>"
+				if format != output.FormatCSV {
+					displayName = "<name>"
+				}
 			}
 			dashboards = append(dashboards, dashboardListItem{
 				Id:          item.Id,

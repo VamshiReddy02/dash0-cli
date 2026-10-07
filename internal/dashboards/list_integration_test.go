@@ -3,6 +3,7 @@
 package dashboards
 
 import (
+	"encoding/csv"
 	"net/http"
 	"strings"
 	"testing"
@@ -39,8 +40,8 @@ func TestListDashboards_NameLookupFailures(t *testing.T) {
 				Validator:  testutil.RequireHeaders,
 			})
 			server.On(http.MethodGet, apiPathDashboards+"/"+ids[2], testutil.MockResponse{
-				StatusCode: http.StatusForbidden,
-				Body:       map[string]string{"message": "permission denied"},
+				StatusCode: http.StatusNotFound,
+				Body:       map[string]string{"message": "dashboard disappeared"},
 				Validator:  testutil.RequireHeaders,
 			})
 			cmd := NewDashboardsCmd()
@@ -62,7 +63,16 @@ func TestListDashboards_NameLookupFailures(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, 2, strings.Count(stdout, "<error>"))
+			if format == "csv" {
+				records, parseErr := csv.NewReader(strings.NewReader(stdout)).ReadAll()
+				require.NoError(t, parseErr)
+				require.Len(t, records, 4)
+				assert.Empty(t, records[1][0])
+				assert.Equal(t, "New dashboard", records[2][0])
+				assert.Empty(t, records[3][0])
+			} else {
+				assert.Equal(t, 2, strings.Count(stdout, "<name>"))
+			}
 			assert.Contains(t, stdout, "New dashboard")
 			for _, id := range ids {
 				assert.Contains(t, stdout, id)
@@ -72,7 +82,7 @@ func TestListDashboards_NameLookupFailures(t *testing.T) {
 			assert.Contains(t, stderr, "warning: failed to resolve dashboard "+ids[0]+":")
 			assert.Contains(t, stderr, "server returned 500")
 			assert.Contains(t, stderr, "warning: failed to resolve dashboard "+ids[2]+":")
-			assert.Contains(t, stderr, "permission denied")
+			assert.Contains(t, stderr, "dashboard disappeared")
 		})
 	}
 }
